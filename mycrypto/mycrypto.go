@@ -3,7 +3,8 @@ package mycrypto
 import (
 	"c3m/common/lzjs"
 	"c3m/common/mystring"
-	"c3m/log"
+
+	"github.com/tidusant/c3m-common/log"
 
 	//	"c3m/log"
 	"encoding/base64"
