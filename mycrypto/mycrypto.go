@@ -1,12 +1,11 @@
 package mycrypto
 
 import (
-	"c3m/common/lzjs"
-	"c3m/common/mystring"
+	"github.com/tidusant/c3m-common/lzjs"
+	"github.com/tidusant/c3m-common/mystring"
 
 	"github.com/tidusant/c3m-common/log"
 
-	//	"c3m/log"
 	"encoding/base64"
 	"math"
 	"math/rand"

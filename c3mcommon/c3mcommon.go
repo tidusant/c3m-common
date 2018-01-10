@@ -3,8 +3,6 @@ package c3mcommon
 import (
 	"bufio"
 	"bytes"
-	"c3m/common/mystring"
-	"c3m/log"
 	"fmt"
 	"image"
 	"image/gif"
@@ -20,6 +18,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tidusant/c3m-common/log"
+	"github.com/tidusant/c3m-common/mystring"
 
 	"github.com/nfnt/resize"
 	"github.com/spf13/viper"
