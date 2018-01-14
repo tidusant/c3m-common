@@ -37,8 +37,8 @@ var (
 func init() {
 	log.Errorf("init common")
 	//Config
-	viper.SetConfigName("app")    // no need to include file extension
-	viper.AddConfigPath("config") // set the path of your config file
+	viper.SetConfigName("config") // no need to include file extension
+	//viper.AddConfigPath("config") // set the path of your config file
 
 	err := viper.ReadInConfig()
 	if !CheckError("Config file not found...", err) {
