@@ -1,18 +1,16 @@
 package mycrypto
 
 import (
-	"github.com/tidusant/c3m-common/lzjs"
-
-	"github.com/tidusant/c3m-common/mystring"
-
-	"github.com/tidusant/c3m-common/log"
-
 	"encoding/base64"
 	"math"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tidusant/c3m-common/log"
+	"github.com/tidusant/c3m-common/lzjs"
+	"github.com/tidusant/c3m-common/mystring"
 )
 
 func StringRand(strlen int) string {
