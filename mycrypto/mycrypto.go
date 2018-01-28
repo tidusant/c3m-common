@@ -2,6 +2,7 @@ package mycrypto
 
 import (
 	"github.com/tidusant/c3m-common/lzjs"
+
 	"github.com/tidusant/c3m-common/mystring"
 
 	"github.com/tidusant/c3m-common/log"
@@ -108,10 +109,12 @@ func Decode(data string) string {
 	x := 10
 	xstr := data[:x]
 	data = data[x:]
-	data, _ = lzjs.DecompressFromBase64(data)
+	//data, _ = lzjs.DecompressFromBase64(data)
+	data = Base64fix(data)
+	datab, _ := base64.StdEncoding.DecodeString(data)
 	xb64 := base64.StdEncoding.EncodeToString([]byte(xstr))
 	xb64 = strings.Replace(xb64, "=", "", -1)
-	data = strings.Replace(data, xb64, "", 1)
+	data = strings.Replace(string(datab), xb64, "", 1)
 	return data
 }
 
