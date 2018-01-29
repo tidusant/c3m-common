@@ -116,6 +116,65 @@ func Decode(data string) string {
 	return data
 }
 
+func Encode2(data string) string {
+
+	oddnumber := NumRand(1, 9)
+	x := mystring.RandString(oddnumber)
+	log.Debugf("x: %s", x)
+	y := base64.StdEncoding.EncodeToString([]byte(x))
+	y = strings.Replace(y, "=", "", -1)
+	log.Debugf("y: %s", y)
+	data = lzjs.CompressToBase64(data)
+	log.Debugf("datacomp: %s", data)
+	l := NumRand(2, len(data))
+	data = data[:l] + y + data[l:]
+	log.Debugf("data: %s", data)
+
+	data = strings.Replace(data, "=", "", -1)
+	oddb64 := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(oddnumber)))
+	oddb64 = strings.Replace(oddb64, "=", "", -1)
+	return x + data + oddb64
+}
+func Decode2(data string) string {
+	if len(data) < 10 {
+		log.Errorf("cannot decode %s", data)
+		return data
+	}
+	oddb64, _ := base64.StdEncoding.DecodeString(Base64fix(data[len(data)-2:]))
+	odd, _ := strconv.Atoi(string(oddb64))
+
+	x := data[:odd]
+	log.Debugf("x: %s", x)
+	y := base64.StdEncoding.EncodeToString([]byte(x))
+	y = strings.Replace(y, "=", "", -1)
+	log.Debugf("y: %s", y)
+	data = data[odd : len(data)-2]
+	ycount := strings.Count(data, y)
+	i := 0
+	ypos := 0
+	for {
+		if i > ycount {
+			log.Errorf("cannot decode %s in loop ypos", data)
+			break
+		}
+		i++
+		ypos = strings.Index(data[ypos:], y)
+		if ypos == -1 {
+			log.Errorf("cannot decode %s y not found", data)
+			break
+		}
+		//test decode
+		datatest := data[:ypos] + data[ypos+len(y):]
+		log.Debugf("datatest: %s", datatest)
+		datatest, _ = lzjs.DecompressFromBase64(datatest)
+		if datatest != "" {
+			return datatest
+
+		}
+	}
+	return ""
+}
+
 func DecodeOld(code string) string {
 	if code == "" {
 		return code
