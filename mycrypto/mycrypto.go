@@ -99,6 +99,32 @@ func DecodeBK(data string, keysalt string) string {
 	return data
 }
 
+//for encDat
+func DecodeA(data string) string {
+
+	oddb64, _ := base64.StdEncoding.DecodeString(Base64fix(data[len(data)-2:]))
+	odd, _ := strconv.Atoi(string(oddb64))
+
+	data = data[:len(data)-2]
+
+	rs1len := int(math.Floor(float64(len(data)) / 2))
+	rs1 := data[:rs1len]
+	rs2 := data[rs1len:]
+
+	rs := ""
+	for i := len(rs2); i > 0; i-- {
+		rs += rs2[i-1 : i]
+		if (len(rs)+1)%odd == 0 {
+			rs += rs1[len(rs1)-1:]
+			rs1 = rs1[:len(rs1)-1]
+		}
+	}
+	log.Debugf("odd:%d, rs1:%s, rs2:%s, rs:%s", odd, rs1, rs2, rs)
+	datab, _ := base64.StdEncoding.DecodeString(Base64fix(rs))
+	return string(datab)
+}
+
+//for encDat2
 func Decode(data string) string {
 	if len(data) < 10 {
 		log.Errorf("cannot decode %s", data)
