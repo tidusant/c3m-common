@@ -45,11 +45,9 @@ func CampaignDecode(data string) string {
 	return string(strbytes)
 }
 
-func Encode(data string, oddnumber int, div int) string {
-	if oddnumber > 9 {
-		oddnumber = 9
-	}
-	var x = NumRand(2, oddnumber)
+func Encode(data string, div int) string {
+
+	var x = NumRand(2, 9)
 	var x2 = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
 	x2 = strings.Replace(x2, "=", "", -1)
 	//x2b := []byte(x2)
@@ -61,7 +59,7 @@ func Encode(data string, oddnumber int, div int) string {
 	}
 
 	data = strings.Replace(data, "=", "", -1)
-	xstr := StringRand(x)
+	xstr := mystring.RandString(x)
 
 	data += xstr
 
@@ -199,6 +197,118 @@ func Decode2(data string) string {
 		}
 	}
 	return ""
+}
+
+func Encode3(data string) string {
+	data = base64.StdEncoding.EncodeToString([]byte(data))
+	data = strings.Replace(data, "=", "", -1)
+	var datalen = len(data)
+	oddnumber := NumRand(1, 9)
+	if datalen < oddnumber {
+		oddnumber = datalen
+	}
+
+	x := mystring.RandString(oddnumber)
+
+	y := base64.StdEncoding.EncodeToString([]byte(x))
+	y = strings.Replace(y, "=", "", -1)
+
+	oddb64 := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(oddnumber)))
+	oddb64 = strings.Replace(oddb64, "=", "", -1)
+
+	data = y + data[:datalen-oddnumber] + x + data[datalen-oddnumber:] + oddb64
+
+	return data
+}
+
+func Decode3(data string) string {
+
+	oddb64 := data[len(data)-2:]
+	data = data[:len(data)-2]
+
+	oddb, _ := base64.StdEncoding.DecodeString(Base64fix(oddb64))
+	oddnumber, _ := strconv.Atoi(string(oddb))
+
+	data2 := data[len(data)-(oddnumber*2):]
+	data = data[:len(data)-(oddnumber*2)]
+	x := data2[:oddnumber]
+
+	data2 = data2[oddnumber:]
+	y := base64.StdEncoding.EncodeToString([]byte(x))
+	y = strings.Replace(y, "=", "", -1)
+
+	data1 := strings.Replace(data, y, "", 1)
+	data = data1 + data2
+	datab, _ := base64.StdEncoding.DecodeString(Base64fix(data))
+	data = string(datab)
+	return data
+}
+
+func Encode4(data string) string {
+
+	var x = NumRand(2, 9)
+
+	//x2b := []byte(x2)
+
+	xstr := mystring.RandString(x)
+
+	data = xstr + data
+
+	data = lzjs.CompressToBase64(data)
+	data = strings.Replace(data, "=", "", -1)
+
+	b := []byte(data)
+
+	var result1 []byte
+	var result2 []byte
+
+	for i := len(b) - 1; i >= 0; i-- {
+
+		if i%x == 0 {
+			result1 = append(result1, b[i]) // string([]rune(data)[i])
+
+		} else {
+			result2 = append(result2, b[i])
+		}
+	}
+
+	strb64 := string(result1) + string(result2)
+
+	var x2 = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
+	x2 = strings.Replace(x2, "=", "", -1)
+
+	strb64 = strb64[:x] + xstr + strb64[x:]
+	strb64 = strb64[:len(strb64)/2] + x2 + strb64[len(strb64)/2:]
+	return strb64
+}
+
+func Decode4(data string) string {
+
+	ld := len(data)/2 - 1
+	var x2 = data[ld : ld+2]
+
+	data = data[:ld] + data[ld+2:]
+	xb, _ := base64.StdEncoding.DecodeString(Base64fix(x2))
+	x, _ := strconv.Atoi(string(xb))
+	data = data[:x] + data[2*x:]
+
+	y := int(math.Ceil(float64(len(data)) / float64(x)))
+	rs := data[y-1 : y]
+	y--
+	leny := y
+
+	for i := len(data) - 1; i > leny; i-- {
+		rs += data[i : i+1]
+		if len(rs)%x == 0 && y > 0 {
+			rs += data[y-1 : y]
+			y--
+		}
+	}
+
+	data, _ = lzjs.DecompressFromBase64(rs)
+
+	data = data[x:]
+	return data
 }
 
 func DecodeOld(code string) string {

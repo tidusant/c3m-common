@@ -3,6 +3,7 @@ package c3mcommon
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/gif"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/tidusant/c3m-common/log"
+	"github.com/tidusant/c3m-common/mycrypto"
 	"github.com/tidusant/c3m-common/mystring"
 
 	"github.com/nfnt/resize"
@@ -743,10 +745,14 @@ func RequestUrl(url, method string, data url.Values) string {
 	var err error
 	if strings.ToLower(method) == "post" {
 		rsp, err = http.PostForm(url, data)
-		CheckError("request api", err)
+		if CheckError("request api", err) {
+			return ""
+		}
 	} else {
 		rsp, err = http.Get(url + "?" + data.Encode())
-		CheckError("request api", err)
+		if CheckError("request api", err) {
+			return ""
+		}
 	}
 
 	defer rsp.Body.Close()
@@ -754,6 +760,34 @@ func RequestUrl(url, method string, data url.Values) string {
 	CheckError("request read data", err)
 	rtstr := string(rtbyte)
 	return rtstr
+}
+
+func RequestService(serviceurl string, data url.Values) string {
+	payloadBytes, err := json.Marshal(data)
+	body := bytes.NewReader(payloadBytes)
+	log.Debugf("request service url: %s", viper.GetString("config.ServiceUrl")+serviceurl)
+	req, err := http.NewRequest("POST", viper.GetString("config.ServiceUrl")+serviceurl, body)
+	if !CheckError("request api", err) {
+
+		return ""
+	}
+	//req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if !CheckError("request api", err) {
+
+		return ""
+	}
+
+	defer resp.Body.Close()
+
+	bodyresp, _ := ioutil.ReadAll(resp.Body)
+	bodystr := string(bodyresp)
+
+	if bodystr == "" {
+		return ""
+	}
+	bodystr = mycrypto.Decode4(bodystr)
+	return bodystr
 }
 
 func RemoveHTMLComments(content []byte) []byte {
