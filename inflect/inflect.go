@@ -439,6 +439,7 @@ func (rs *Ruleset) Parameterize(word string) string {
 
 // param safe dasherized names with custom seperator
 func (rs *Ruleset) ParameterizeJoin(word, sep string) string {
+	word = strings.Replace(word, ".", "", -1)
 	word = strings.ToLower(word)
 	word = rs.Asciify(word)
 	word = notUrlSafe.ReplaceAllString(word, "")
