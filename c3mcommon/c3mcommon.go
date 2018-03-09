@@ -786,7 +786,7 @@ func RequestService(serviceurl string, data url.Values) string {
 	if bodystr == "" {
 		return ""
 	}
-	log.Debugf("response: %s,bodystr")
+	log.Debugf("response: %s", bodystr)
 	bodystr = mycrypto.Decode4(bodystr)
 	return bodystr
 }
