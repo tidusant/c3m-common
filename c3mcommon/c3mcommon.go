@@ -745,12 +745,12 @@ func RequestUrl(url, method string, data url.Values) string {
 	var err error
 	if strings.ToLower(method) == "post" {
 		rsp, err = http.PostForm(url, data)
-		if CheckError("request api", err) {
+		if !CheckError("request api", err) {
 			return ""
 		}
 	} else {
 		rsp, err = http.Get(url + "?" + data.Encode())
-		if CheckError("request api", err) {
+		if !CheckError("request api", err) {
 			return ""
 		}
 	}
@@ -786,6 +786,7 @@ func RequestService(serviceurl string, data url.Values) string {
 	if bodystr == "" {
 		return ""
 	}
+
 	log.Debugf("response: %s", bodystr)
 	bodystr = mycrypto.Decode4(bodystr)
 	return bodystr

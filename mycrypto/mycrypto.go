@@ -144,15 +144,15 @@ func Encode2(data string) string {
 
 	oddnumber := NumRand(1, 9)
 	x := mystring.RandString(oddnumber)
-	log.Debugf("x: %s", x)
+	//log.Debugf("x: %s", x)
 	y := base64.StdEncoding.EncodeToString([]byte(x))
 	y = strings.Replace(y, "=", "", -1)
-	log.Debugf("y: %s", y)
+	//log.Debugf("y: %s", y)
 	data = lzjs.CompressToBase64(data)
-	log.Debugf("datacomp: %s", data)
+	//log.Debugf("datacomp: %s", data)
 	l := NumRand(2, len(data))
 	data = data[:l] + y + data[l:]
-	log.Debugf("data: %s", data)
+	//log.Debugf("data: %s", data)
 
 	data = strings.Replace(data, "=", "", -1)
 	oddb64 := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(oddnumber)))
