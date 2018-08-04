@@ -45,27 +45,166 @@ func CampaignDecode(data string) string {
 	return string(strbytes)
 }
 
+//for decode old
 func Encode(data string, div int) string {
 
 	var x = NumRand(2, 9)
+	//log.Debugf("random x :%s", x)
 	var x2 = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
 	x2 = strings.Replace(x2, "=", "", -1)
+	//log.Debugf("x2 base 64 :%s", x2)
 	//x2b := []byte(x2)
 	if div == 2 {
 		data = lzjs.CompressToBase64(data)
 
 	} else {
 		data = base64.StdEncoding.EncodeToString([]byte(data))
+		//log.Debugf("data base 64 :%s", data)
 	}
 
 	data = strings.Replace(data, "=", "", -1)
+
 	xstr := mystring.RandString(x)
+	//log.Debugf("xstr RandString(x):%s", xstr)
 
 	data += xstr
 
 	b := []byte(data)
 
 	var l = int(math.Floor(float64(len(data) / div)))
+	//log.Debugf("l :%s", l)
+	var result1 []byte
+	var result2 []byte
+
+	for i := len(b) - 1; i >= 0; i-- {
+
+		if i%x == 0 {
+			result1 = append(result1, b[i]) // string([]rune(data)[i])
+
+		} else {
+			result2 = append(result2, b[i])
+		}
+	}
+	//log.Debugf("string(result1):%s", string(result1))
+	//log.Debugf("string(result2):%s", string(result2))
+	strb64 := string(result1) + string(result2)
+	strb64 = strb64[:l] + x2 + strb64[l:]
+	//log.Debugf("strb64:%s", strb64)
+	return strb64
+}
+
+func DecodeOld(code string, div int) string {
+	if code == "" {
+		return code
+	}
+	var rt string = ""
+	key := code
+	//key = "kZXUuYkRWzUgQk92YoNwRdh92Q3SZtFmb9Wa0NW"
+	if key == rt {
+		return rt
+	}
+
+	oddstr := "d"
+	l := int(math.Floor(float64((len(key) - 2) / div)))
+	//log.Debugf("l :%s", l)
+	//var l = int(math.Floor(float64(len(data) / div)))
+	x2 := key[l : l+2]
+	//log.Debugf("x2 :%s", x2)
+	key = key[:l] + key[l+2:]
+	//log.Debugf("rs1 + rs 2 :%s", key)
+	byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(x2))
+	x2 = string(byteDecode)
+
+	floatNum, _ := strconv.ParseFloat(x2, 64)
+	intNum := (int)(floatNum)
+	//log.Debugf("x :%s", intNum)
+	if intNum > 0 {
+		//print_r($num);print_r("\r\n");
+		//get odd string
+		lf := math.Ceil((float64)(len(key)) / floatNum)
+		//log.Debugf("lf :%s", lf)
+		oddstr = key[:int(lf)]
+		//log.Debugf("oddstr key[:int(lf)] :%s", oddstr)
+		ukey := strings.Replace(key, oddstr, "", 1)
+		//log.Debugf("ukey Replace(key, oddstr :%s", ukey)
+		base64str := ""
+
+		for i := len(oddstr) - 1; i >= 0; i-- {
+			base64str += string(oddstr[len(oddstr)-1:])
+			oddstr = oddstr[:len(oddstr)-1]
+			if len(ukey)-intNum+1 > 0 {
+				base64str += mystring.Reverse(string(ukey[len(ukey)-intNum+1:]))
+			} else {
+				base64str += mystring.Reverse(ukey)
+			}
+			if i > 0 {
+				ukey = ukey[:len(ukey)-intNum+1]
+			}
+		}
+		//log.Debugf("base64str :%s", base64str)
+		base64str = base64str[:len(base64str)-intNum]
+		//log.Debugf("base64str :%s", base64str)
+		//log.Debugf("lzjs %s", base64str)
+		//log.Debugf("lzjs %s", Base64fix(base64str))
+		//byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(base64str))
+		//base64str = Base64fix(base64str)
+		//byteDecode, _ := lzjs.DecompressFromBase64(base64str)
+		//data, _ := base64.StdEncoding.DecodeString(base64str)
+		if div == 2 {
+			byteDecode, _ := lzjs.DecompressFromBase64(base64str)
+			rt = byteDecode
+		} else {
+			byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(base64str))
+			rt = string(byteDecode)
+		}
+
+		//log.Debugf("rt :%s", rt)
+		//log.Debugf("data decompress %s", rt)
+		//rt, _ = url.QueryUnescape(rt)
+		//log.Debugf("data decompress %s", rt)
+	}
+	return rt
+}
+
+func EncodeBK(data string, keysalt string) string {
+	//data = lzjs.CompressToBase64(data)
+	data = base64.StdEncoding.EncodeToString([]byte(data))
+	data = strings.Replace(data, "=", "", -1)
+	//log.Debugf("keysalt: %s", keysalt)
+	keysalt = base64.StdEncoding.EncodeToString([]byte(keysalt))
+	keysalt = strings.Replace(keysalt, "=", "", -1)
+	//log.Debugf("keysalt: %s", keysalt)
+	l := 3
+	data = data[:l] + keysalt + data[l:]
+	//log.Println("strReturn: %s", data)
+	return data
+}
+
+func DecodeBK(data string, keysalt string) string {
+	keysalt = base64.StdEncoding.EncodeToString([]byte(keysalt))
+	keysalt = strings.Replace(keysalt, "=", "", -1)
+	data = strings.Replace(data, keysalt, "", 1)
+	data = Base64fix(data)
+	//byteDecode, _ := lzjs.DecompressFromBase64(data)
+	byteDecode, _ := base64.StdEncoding.DecodeString(data)
+	data = string(byteDecode)
+	return data
+}
+
+//for encDatA
+func EncodeA(data string) string {
+
+	var x = NumRand(2, 9)
+
+	//x2b := []byte(x2)
+
+	xstr := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
+	xstr = strings.Replace(xstr, "=", "", -1)
+
+	data = base64.StdEncoding.EncodeToString([]byte(data))
+	data = strings.Replace(data, "=", "", -1)
+
+	b := []byte(data)
 
 	var result1 []byte
 	var result2 []byte
@@ -80,24 +219,11 @@ func Encode(data string, div int) string {
 		}
 	}
 
-	strb64 := string(result1) + string(result2)
-	strb64 = strb64[:l] + x2 + strb64[l:]
-
+	strb64 := string(result1) + string(result2) + xstr
 	return strb64
 }
 
-func DecodeBK(data string, keysalt string) string {
-	keysalt = base64.StdEncoding.EncodeToString([]byte(keysalt))
-	keysalt = strings.Replace(keysalt, "=", "", -1)
-	data = strings.Replace(data, keysalt, "", 1)
-	data = Base64fix(data)
-	//byteDecode, _ := lzjs.DecompressFromBase64(data)
-	byteDecode, _ := base64.StdEncoding.DecodeString(data)
-	data = string(byteDecode)
-	return data
-}
-
-//for encDat
+//for encDatA
 func DecodeA(data string) string {
 
 	oddb64, _ := base64.StdEncoding.DecodeString(Base64fix(data[len(data)-2:]))
@@ -309,66 +435,6 @@ func Decode4(data string) string {
 
 	data = data[x:]
 	return data
-}
-
-func DecodeOld(code string) string {
-	if code == "" {
-		return code
-	}
-	var rt string = ""
-	key := code
-	//key = "kZXUuYkRWzUgQk92YoNwRdh92Q3SZtFmb9Wa0NW"
-	if key == rt {
-		return rt
-	}
-
-	oddstr := "d"
-	l := int(math.Floor((float64)(len(key)-2) / 2))
-	num := key[l : l+2]
-
-	key = key[:l] + key[l+2:]
-
-	byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(num))
-	num = string(byteDecode)
-
-	floatNum, _ := strconv.ParseFloat(num, 64)
-	intNum := (int)(floatNum)
-	if intNum > 0 {
-		//print_r($num);print_r("\r\n");
-		//get odd string
-		lf := math.Ceil((float64)(len(key)) / floatNum)
-		oddstr = key[:int(lf)]
-		ukey := strings.Replace(key, oddstr, "", 1)
-		base64str := ""
-
-		for i := len(oddstr) - 1; i >= 0; i-- {
-			base64str += string(oddstr[len(oddstr)-1:])
-			oddstr = oddstr[:len(oddstr)-1]
-			if len(ukey)-intNum+1 > 0 {
-				base64str += mystring.Reverse(string(ukey[len(ukey)-intNum+1:]))
-			} else {
-				base64str += mystring.Reverse(ukey)
-			}
-			if i > 0 {
-				ukey = ukey[:len(ukey)-intNum+1]
-			}
-		}
-		base64str = base64str[:len(base64str)-intNum]
-
-		//log.Debugf("lzjs %s", base64str)
-		//log.Debugf("lzjs %s", Base64fix(base64str))
-		//byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(base64str))
-		//base64str = Base64fix(base64str)
-		//byteDecode, _ := lzjs.DecompressFromBase64(base64str)
-		//data, _ := base64.StdEncoding.DecodeString(base64str)
-		byteDecode, _ := lzjs.DecompressFromBase64(base64str)
-
-		rt = string(byteDecode)
-		//log.Debugf("data decompress %s", rt)
-		//rt, _ = url.QueryUnescape(rt)
-		//log.Debugf("data decompress %s", rt)
-	}
-	return rt
 }
 
 //encode for wapi
