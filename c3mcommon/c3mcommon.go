@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"reflect"
+
 	"io"
 	"io/ioutil"
 	"net"
@@ -185,6 +188,9 @@ func initListLocale() {
 	listLocale["zu"] = "zu_ZA"
 	listLocale["zz"] = "zz_TR"
 }
+func GetLangnameByCode(code string) string {
+	return listCountry[code]
+}
 func initListCountry() {
 	listCountry = make(map[string]string)
 	listCountry["af"] = "Afrikaans"
@@ -209,7 +215,7 @@ func initListCountry() {
 	listCountry["da"] = "Danish"
 	listCountry["de"] = "German"
 	listCountry["el"] = "Greek"
-	listCountry["en"] = "English (US)"
+	listCountry["en"] = "English"
 	listCountry["eo"] = "Esperanto"
 	listCountry["es"] = "Spanish (Venezuela)"
 	listCountry["et"] = "Estonian"
@@ -567,6 +573,18 @@ func CheckError(msg string, err error) bool {
 	}
 	return true
 }
+func InArray(v interface{}, in interface{}) (ok bool, i int) {
+	val := reflect.Indirect(reflect.ValueOf(in))
+	switch val.Kind() {
+	case reflect.Slice, reflect.Array:
+		for ; i < val.Len(); i++ {
+			if ok = v == val.Index(i).Interface(); ok {
+				return
+			}
+		}
+	}
+	return
+}
 func ImgResize(imagebytes []byte, w, h uint) ([]byte, string) {
 	filetype := http.DetectContentType(imagebytes[:512])
 	r := bytes.NewReader(imagebytes)
@@ -577,16 +595,18 @@ func ImgResize(imagebytes []byte, w, h uint) ([]byte, string) {
 	}
 	var buf bytes.Buffer
 	wr := io.Writer(&buf)
-
+	returnext := "jpg"
 	if filetype == "image/jpeg" {
 		jpeg.Encode(wr, m, nil)
 	} else if filetype == "image/gif" {
 		gif.Encode(wr, m, nil)
+		returnext = "gif"
 	} else if filetype == "image/png" {
 		png.Encode(wr, m)
+		returnext = "png"
 	}
 
-	return buf.Bytes(), strings.Replace(filetype, "image/", "", 1)
+	return buf.Bytes(), returnext
 }
 
 //func GetShop(userid, shopid string) models.Shop {
@@ -732,26 +752,40 @@ func CopyDir(source string, dest string) (err error) {
 
 func JSMinify(content string) string {
 	data := url.Values{}
-	data.Add("data", content)
+	data.Add("code", viper.GetString("config.minifyKey"))
+	data.Add("text", content)
 	rtstr := RequestUrl(viper.GetString("config.minify"), "POST", data)
-	if strings.Index(rtstr, "ERROR!!!") >= 0 {
-		log.Debugf("JSMinify Fail: %s", rtstr)
-		return ""
-	}
 	return rtstr
-
 }
 
-func RequestUrl(url, method string, data url.Values) string {
+//commpress using lzstring from nodejs
+func Base64Compress(content string) string {
+	data := url.Values{}
+	data.Add("code", viper.GetString("config.minifyKey"))
+	data.Add("text", content)
+	rtstr := RequestUrl(viper.GetString("config.compress"), "POST", data)
+	return rtstr
+}
+func MinifyCompress(content string) string {
+	data := url.Values{}
+	data.Add("code", viper.GetString("config.minifyKey"))
+	data.Add("text", content)
+	rtstr := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
+	return rtstr
+}
+func RequestUrl(urlrequest, method string, data url.Values) string {
 	var rsp *http.Response
 	var err error
 	if strings.ToLower(method) == "post" {
-		rsp, err = http.PostForm(url, data)
+		proxyUrl, err := url.Parse("http://127.0.0.1:8888")
+		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+
+		rsp, err = http.PostForm(urlrequest, data)
 		if !CheckError("request api", err) {
 			return ""
 		}
 	} else {
-		rsp, err = http.Get(url + "?" + data.Encode())
+		rsp, err = http.Get(urlrequest + "?" + data.Encode())
 		if !CheckError("request api", err) {
 			return ""
 		}
@@ -788,8 +822,8 @@ func RequestService(serviceurl string, data url.Values) string {
 		return ""
 	}
 
-	log.Debugf("response: %s", bodystr)
 	bodystr = mycrypto.Decode4(bodystr)
+	// log.Debugf("response decode:%s", bodystr)
 	return bodystr
 }
 
@@ -850,8 +884,51 @@ func MinifyCSS(csscontent []byte) string {
 
 	return minifiedCss
 }
-
 func CreateImageFile(path, b64content string) error {
+	imagebytes, err := base64.StdEncoding.DecodeString(b64content)
+	if len(imagebytes) < 512 {
+		return errors.New("not image file: " + string(imagebytes))
+	}
+	filetype := http.DetectContentType(imagebytes[:512])
+	r := bytes.NewReader(imagebytes)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		errstr := "Cannot open file: " + path + " - " + err.Error()
+		return errors.New(errstr)
+
+	}
+
+	if filetype == "image/jpeg" {
+		im, err := jpeg.Decode(r)
+		if err != nil {
+
+			errstr := "Bad jpg: " + path + " - " + err.Error()
+			return errors.New(errstr)
+		}
+		jpeg.Encode(f, im, nil)
+	} else if filetype == "image/gif" {
+		im, err := gif.Decode(r)
+		if err != nil {
+			errstr := "Bad gif: " + path + " - " + err.Error()
+			return errors.New(errstr)
+		}
+		gif.Encode(f, im, nil)
+
+	} else if filetype == "image/png" {
+		im, err := png.Decode(r)
+		if err != nil {
+			errstr := "Bad png: " + path + " - " + err.Error()
+			return errors.New(errstr)
+		}
+		png.Encode(f, im)
+
+	}
+
+	defer f.Close()
+
+	return nil
+}
+func CreateImageFileOld(path, b64content string) error {
 	unbased, err := base64.StdEncoding.DecodeString(b64content)
 	if err != nil {
 		log.Debugf("Cannot decode b64  %s", err)
@@ -862,47 +939,62 @@ func CreateImageFile(path, b64content string) error {
 	if filepath.Ext(path) == ".png" {
 		im, err := png.Decode(r)
 		if err != nil {
-			log.Debugf("Bad png  %s", err)
-			return err
+			errstr := "Bad png: " + path + " - " + err.Error()
+			return errors.New(errstr)
 		}
 
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0777)
 		if err != nil {
+			errstr := "Cannot open file: " + path + " - " + err.Error()
+			return errors.New(errstr)
 
-			log.Debugf("Cannot open file  %s", err)
-			return err
 		}
 		png.Encode(f, im)
 		f.Close()
 	} else if filepath.Ext(path) == ".jpg" || filepath.Ext(path) == ".jpeg" {
 		im, err := jpeg.Decode(r)
 		if err != nil {
-			log.Debugf("Bad jpg  %s", err)
-			return err
+
+			errstr := "Bad jpg: " + path + " - " + err.Error()
+			return errors.New(errstr)
 		}
 
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0777)
 		if err != nil {
-			log.Debugf("Cannot open file  %s", err)
-			return err
+			errstr := "Cannot open file: " + path + " - " + err.Error()
+			return errors.New(errstr)
 		}
 		jpeg.Encode(f, im, nil)
 		f.Close()
 	} else if filepath.Ext(path) == ".gif" {
 		im, err := gif.Decode(r)
 		if err != nil {
-			log.Debugf("Bad gif  %s", err)
-			return err
+			errstr := "Bad gif: " + path + " - " + err.Error()
+			return errors.New(errstr)
 		}
 
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0777)
 		if err != nil {
 
-			log.Debugf("Cannot open file  %s", err)
-			return err
+			errstr := "Cannot open file: " + path + " - " + err.Error()
+			return errors.New(errstr)
 		}
 		gif.Encode(f, im, nil)
 		f.Close()
+	} else if filepath.Ext(path) == ".svg" {
+		i := strings.Index(b64content, ",")
+		if i < 0 {
+			log.Errorf("no comma")
+		}
+		// pass reader to NewDecoder
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(b64content[i+1:]))
+		b, err := ioutil.ReadAll(dec)
+		err = ioutil.WriteFile(path, b, 0777)
+		if err != nil {
+			errstr := "Bad svg: " + path + " - " + err.Error()
+			return errors.New(errstr)
+		}
+
 	}
 	return nil
 }
