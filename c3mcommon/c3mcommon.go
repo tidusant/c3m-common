@@ -1,6 +1,7 @@
 package c3mcommon
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"encoding/base64"
@@ -11,6 +12,8 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"mime/multipart"
+	"path"
 	"reflect"
 
 	"io"
@@ -28,6 +31,7 @@ import (
 	"github.com/tidusant/c3m-common/log"
 	"github.com/tidusant/c3m-common/mycrypto"
 	"github.com/tidusant/c3m-common/mystring"
+	"github.com/tidusant/chadmin-repo/models"
 
 	"github.com/nfnt/resize"
 	"github.com/spf13/viper"
@@ -523,11 +527,17 @@ func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
 //	}
 //	return true
 //}
-func ReturnJsonMessage(status, strerr, strmsg, data string) string {
+func ReturnJsonMessage(status, strerr, strmsg, data string) models.RequestResult {
 	if data == "" {
 		data = "{}"
 	}
-	return "{\"status\":\"" + status + "\",\"error\":\"" + strerr + "\",\"message\":\"" + strmsg + "\",\"data\":" + data + "}"
+	var resp models.RequestResult
+	resp.Status = status
+	resp.Error = strerr
+	resp.Message = strmsg
+
+	resp.Data = json.RawMessage(data)
+	return resp
 }
 func FileCount(path string) int {
 	i := 0
@@ -566,6 +576,8 @@ func FileCount(path string) int {
 //	}
 //	return false
 //}
+
+//true: no error
 func CheckError(msg string, err error) bool {
 	if err != nil {
 		log.Debugf(msg+": %s", err.Error())
@@ -609,26 +621,13 @@ func ImgResize(imagebytes []byte, w, h uint) ([]byte, string) {
 	return buf.Bytes(), returnext
 }
 
-//func GetShop(userid, shopid string) models.Shop {
-//	coluser := db["cuahang"].C("addons_shops")
-//	var shop models.Shop
-//	coluser.Find(bson.M{"_id": bson.ObjectIdHex(shopid), "clientid": bson.ObjectIdHex(userid)}).One(&shop)
-//	return shop
-//}
-
-//func UpdateAlbum(shop models.Shop) models.Shop {
-//	coluser := db["cuahang"].C("addons_shops")
-
-//	cond := bson.M{"_id": shop.ID}
-//	change := bson.M{"$set": bson.M{"albums": shop.Albums}}
-
-//	coluser.Update(cond, change)
-//	return shop
-//}
-
 func CheckDomain(requestDomain string) string {
 
 	domainallow := strings.Split(viper.GetString("config.domainallow"), ",")
+	requestDomain = strings.Replace(requestDomain, "http://", "", -1)
+	requestDomain = strings.Replace(requestDomain, "https://", "", -1)
+	requestDomain = strings.Replace(requestDomain, "/", "", -1)
+
 	for i := 0; i < len(domainallow); i++ {
 		log.Debugf("%s - %s", domainallow[i], requestDomain)
 		if domainallow[i] == requestDomain {
@@ -645,6 +644,144 @@ func Fake64() string {
 
 func Code2Flag(code string) string {
 	return listCountryFlag[code]
+}
+
+// Unzip will decompress a zip archive, moving all files and folders
+// within the zip file (parameter 1) to an output directory (parameter 2).
+func Unzip(src string, dest string) ([]string, error) {
+
+	var filenames []string
+
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return filenames, errors.New("open " + src + ": " + err.Error())
+	}
+	defer r.Close()
+	filetypeAllows := strings.Split(viper.GetString("config.zipfileextallow"), ",")
+	filetypeAllowMap := make(map[string]string)
+	for _, ext := range filetypeAllows {
+		filetypeAllowMap[ext] = ext
+	}
+
+	for _, f := range r.File {
+		//check file type:
+		if filetypeAllowMap[path.Ext(f.Name)] == "" {
+			continue
+		}
+		// Store filename/path for returning and using later on
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		filenames = append(filenames, fpath)
+
+		if f.FileInfo().IsDir() {
+			// Make Folder
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		// Make File
+		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return filenames, errors.New("create " + strings.Replace(fpath, dest, "", 1) + ": " + err.Error())
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return filenames, errors.New("file " + strings.Replace(outFile.Name(), dest, "", 1) + ": " + err.Error())
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return filenames, errors.New("file " + strings.Replace(outFile.Name(), dest, "", 1) + ": " + err.Error())
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		// Close the file without defer to close before next iteration of loop
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return filenames, errors.New("file " + strings.Replace(outFile.Name(), dest, "", 1) + ": " + err.Error())
+		}
+	}
+	return filenames, nil
+}
+
+func Zipit(source, target string) error {
+	zipfile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer zipfile.Close()
+
+	archive := zip.NewWriter(zipfile)
+	defer archive.Close()
+
+	info, err := os.Stat(source)
+	if err != nil {
+		return nil
+	}
+
+	var baseDir string
+	if info.IsDir() {
+		baseDir = filepath.Base(source)
+	}
+	//filetype allow:
+	filetypeAllows := strings.Split(viper.GetString("config.zipfileextallow"), ",")
+	filetypeAllowMap := make(map[string]string)
+	for _, ext := range filetypeAllows {
+		filetypeAllowMap[ext] = ext
+	}
+	filepath.Walk(source, func(walkpath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		//check file type:
+		if filetypeAllowMap[path.Ext(info.Name())] == "" {
+			return nil
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		if baseDir != "" {
+			//header.Name = filepath.Join(baseDir, strings.TrimPrefix(walkpath, source))
+			header.Name = strings.TrimPrefix(walkpath, source)
+			//remove slash
+			header.Name = header.Name[1:]
+		}
+
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate
+		}
+		log.Debugf("basedir:%s, walkpath:%s, file: %s, headername:%s", baseDir, walkpath, info.Name(), header.Name)
+		writer, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(walkpath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(writer, file)
+		return err
+	})
+
+	return err
 }
 
 // Check if a port is available
@@ -680,6 +817,7 @@ func FolderExists(path string) bool {
 	return true
 }
 
+//alternate code: https://github.com/otiai10/copy/blob/master/copy.go
 func CopyFile(source string, dest string) (err error) {
 	sourcefile, err := os.Open(source)
 	if err != nil {
@@ -750,37 +888,131 @@ func CopyDir(source string, dest string) (err error) {
 	return
 }
 
+func JS1Line(content string) string {
+	content = strings.Replace(content, "\r\n", "", -1)
+	content = strings.Replace(content, "\n", "", -1)
+	content = strings.Replace(content, "\r", "", -1)
+	return content
+}
 func JSMinify(content string) string {
-	data := url.Values{}
-	data.Add("code", viper.GetString("config.minifyKey"))
-	data.Add("text", content)
-	rtstr := RequestUrl(viper.GetString("config.minify"), "POST", data)
+	data := "code=" + viper.GetString("config.minifyKey")
+	data += "&text=" + url.QueryEscape(content)
+
+	rtstr, _ := RequestUrl(viper.GetString("config.minify"), "POST", data)
 	return rtstr
 }
 
 //commpress using lzstring from nodejs
 func Base64Compress(content string) string {
-	data := url.Values{}
-	data.Add("code", viper.GetString("config.minifyKey"))
-	data.Add("text", content)
-	rtstr := RequestUrl(viper.GetString("config.compress"), "POST", data)
+	data := "code=" + viper.GetString("config.minifyKey")
+	data += "&text=" + url.QueryEscape(content)
+	rtstr, _ := RequestUrl(viper.GetString("config.compress"), "POST", data)
 	return rtstr
 }
 func MinifyCompress(content string) string {
-	data := url.Values{}
-	data.Add("code", viper.GetString("config.minifyKey"))
-	data.Add("text", content)
-	rtstr := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
+	data := "code=" + viper.GetString("config.minifyKey")
+	data += "&text=" + url.QueryEscape(content)
+
+	rtstr, _ := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
 	return rtstr
 }
-func RequestUrl(urlrequest, method string, data url.Values) string {
+func RequestMainService(uri, method, data string) models.RequestResult {
+	data = "data=" + mycrypto.EncDat2(data)
+	rtstr, resp := RequestUrl(viper.GetString("config.mainserver")+mycrypto.EncDat2(uri), method, data)
+	var rs models.RequestResult
+	if resp == nil || resp.StatusCode != 200 {
+		rs.Status = "0"
+		rs.Error = "Request service error. Please contact your administrator."
+		return rs
+	}
+	rtstr = mycrypto.DecodeOld(rtstr, 8)
+
+	json.Unmarshal([]byte(rtstr), &rs)
+
+	if rs.Status == "" {
+		rs.Status = "0"
+		rs.Error = "Service Response error. Please contact your administrator."
+	}
+	return rs
+}
+func RequestBuildService(uri, method, data string) models.RequestResult {
+
+	data = "data=" + mycrypto.EncDat2(data)
+	rtstr, resp := RequestUrl(viper.GetString("config.buildserver")+mycrypto.EncodeBK(uri, "name"), method, data)
+	var rs models.RequestResult
+	if resp == nil || resp.StatusCode != 200 {
+		rs.Status = "0"
+		rs.Error = "Request service error. Please contact your administrator."
+
+	}
+	rtstr = mycrypto.DecodeLight1(rtstr, 5)
+
+	json.Unmarshal([]byte(rtstr), &rs)
+
+	if rs.Status == "" {
+		rs.Status = "0"
+		rs.Error = "Service Response error. Please contact your administrator."
+	}
+
+	return rs
+}
+func RequestBuildServiceAsync(uri, method, data string) {
+	go func(uri, method, data string) {
+		RequestBuildService(uri, method, data)
+	}(uri, method, data)
+}
+func RequestUrl(urlrequest, method, data string) (string, *http.Response) {
+	var req *http.Request
+	var err error
+	// payloadBytes, err := json.Marshal(data)
+	body := bytes.NewReader([]byte(data))
+	if strings.ToLower(method) == "post" {
+		if viper.GetString("config.proxy") != "" {
+
+			proxyUrl, _ := url.Parse(viper.GetString("config.proxy"))
+			http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		}
+
+		req, err = http.NewRequest("POST", urlrequest, body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		host := viper.GetString("config.hostname")
+		req.Header.Set("Origin", host)
+
+		// host = strings.Replace(host, "http://", "", -1)
+		// host = strings.Replace(host, "https://", "", -1)
+		// host = strings.Replace(host, "/", "", -1)
+		// req.Host = host
+
+	} else {
+		req, err = http.NewRequest("GET", urlrequest+"?"+data, nil)
+
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if !CheckError("request api", err) {
+		return "", resp
+	}
+
+	defer req.Body.Close()
+
+	bodyresp, err := ioutil.ReadAll(resp.Body)
+	bodystr := string(bodyresp)
+	CheckError("request read data", err)
+
+	return bodystr, resp
+}
+func RequestUrl2(urlrequest, method string, data url.Values) string {
 	var rsp *http.Response
 	var err error
-	if strings.ToLower(method) == "post" {
-		proxyUrl, err := url.Parse("http://127.0.0.1:8888")
-		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
 
+	if strings.ToLower(method) == "post" {
+		if viper.GetString("config.proxy") != "" {
+			proxyUrl, _ := url.Parse(viper.GetString("config.proxy"))
+			http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		}
 		rsp, err = http.PostForm(urlrequest, data)
+		rsp.Header.Set("Origin", "application/json")
+
 		if !CheckError("request api", err) {
 			return ""
 		}
@@ -798,18 +1030,76 @@ func RequestUrl(urlrequest, method string, data url.Values) string {
 	return rtstr
 }
 
-func RequestService(serviceurl string, data url.Values) string {
+// Creates a new file upload http request with optional extra params
+func FileUploadRequest(uri string, params map[string]string, paramName, path string) string {
+	rt := ""
+	file, err := os.Open(path)
+	if err != nil {
+		return rt
+	}
+	defer file.Close()
+
+	// fileContents, err := ioutil.ReadAll(file)
+	// if err != nil {
+	// 	return rt
+	// }
+	fi, err := file.Stat()
+	if err != nil {
+		return rt
+	}
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(paramName, fi.Name())
+	if err != nil {
+		return rt
+	}
+	io.Copy(part, file)
+
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+	err = writer.Close()
+	if err != nil {
+		return rt
+	}
+	if viper.GetString("config.proxy") != "" {
+		proxyUrl, _ := url.Parse(viper.GetString("config.proxy"))
+		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	}
+	request, err := http.NewRequest("POST", uri, body)
+	request.Header.Add("Content-Type", writer.FormDataContentType())
+	if err != nil {
+		CheckError("Request "+uri+" error", err)
+	}
+	//client := &http.Client{}
+	host := viper.GetString("config.hostname")
+	request.Header.Set("Origin", host)
+
+	resp, err := http.DefaultClient.Do(request)
+	bodyresp, _ := ioutil.ReadAll(resp.Body)
+	rt = string(bodyresp)
+	// if err != nil {
+	// 	CheckError("Request "+uri+" error", err)
+	// } else {
+	// 	var bodyContent []byte
+	// 	resp.Body.Read(bodyContent)
+	// 	resp.Body.Close()
+	// 	rt = string(bodyContent)
+	// }
+	return rt
+}
+
+func RequestService2(serviceurl string, data url.Values) string {
 	payloadBytes, err := json.Marshal(data)
 	body := bytes.NewReader(payloadBytes)
-	log.Debugf("request service url: %s", viper.GetString("config.ServiceUrl")+serviceurl)
-	req, err := http.NewRequest("POST", viper.GetString("config.ServiceUrl")+serviceurl, body)
+	req, err := http.NewRequest("POST", serviceurl, body)
 	if !CheckError("request api", err) {
 		return ""
 	}
 	//req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if !CheckError("request api", err) {
-
 		return ""
 	}
 

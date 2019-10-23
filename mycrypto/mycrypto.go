@@ -69,7 +69,9 @@ func CampaignDecode(data string) string {
 
 //for decode old
 func Encode(data string, div int) string {
-
+	if data == "" {
+		return data
+	}
 	var x = NumRand(2, 9)
 	//log.Debugf("random x :%s", x)
 	var x2 = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
@@ -116,7 +118,9 @@ func Encode(data string, div int) string {
 }
 
 func EncodeLight1(data string, div int) string {
-
+	if data == "" {
+		return data
+	}
 	var x = NumRand(2, 9)
 	//log.Debugf("random x :%s", x)
 	var x2 = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(x)))
@@ -208,6 +212,7 @@ func DecodeLight1(code string, div int) string {
 	return rt
 }
 
+//for encode
 func DecodeOld(code string, div int) string {
 	if code == "" {
 		return code
@@ -283,7 +288,9 @@ func DecodeOld(code string, div int) string {
 
 //for decode old
 func EncodeApp(data string, div int) string {
-
+	if data == "" {
+		return data
+	}
 	var x = NumRand(10, 99)
 	//log.Debugf("random x :%s", x)
 
@@ -370,24 +377,41 @@ func DecodeApp(data string, div int) string {
 	return rt
 }
 
+//not have random url
 func EncodeBK(data string, keysalt string) string {
+	if data == "" {
+		return data
+	}
 	//data = lzjs.CompressToBase64(data)
 	data = base64.StdEncoding.EncodeToString([]byte(data))
 	data = strings.Replace(data, "=", "", -1)
 	//log.Debugf("keysalt: %s", keysalt)
 	keysalt = base64.StdEncoding.EncodeToString([]byte(keysalt))
 	keysalt = strings.Replace(keysalt, "=", "", -1)
+	x := mystring.RandString(len(keysalt))
 	//log.Debugf("keysalt: %s", keysalt)
-	l := 3
-	data = data[:l] + keysalt + data[l:]
+	l := len(x)
+	if len(x) > len(data) {
+		l = len(data)
+	}
+	data = data[:l] + x + data[l:]
 	//log.Println("strReturn: %s", data)
 	return data
 }
 
 func DecodeBK(data string, keysalt string) string {
+	if data == "" {
+		return data
+	}
 	keysalt = base64.StdEncoding.EncodeToString([]byte(keysalt))
 	keysalt = strings.Replace(keysalt, "=", "", -1)
-	data = strings.Replace(data, keysalt, "", 1)
+	l := len(keysalt)
+	if l*2 > len(data) {
+		l = len(data) - l
+	}
+
+	data = data[:l] + data[l+len(keysalt):]
+
 	data = Base64fix(data)
 	//byteDecode, _ := lzjs.DecompressFromBase64(data)
 	byteDecode, _ := base64.StdEncoding.DecodeString(data)
@@ -397,7 +421,9 @@ func DecodeBK(data string, keysalt string) string {
 
 //for encDatA
 func EncodeA(data string) string {
-
+	if data == "" {
+		return data
+	}
 	var x = NumRand(2, 9)
 
 	//x2b := []byte(x2)
@@ -429,7 +455,9 @@ func EncodeA(data string) string {
 
 //for encDatA
 func DecodeA(data string) string {
-
+	if data == "" {
+		return data
+	}
 	oddb64, _ := base64.StdEncoding.DecodeString(Base64fix(data[len(data)-2:]))
 	odd, _ := strconv.Atoi(string(oddb64))
 
@@ -452,12 +480,34 @@ func DecodeA(data string) string {
 	return string(datab)
 }
 
+func EncDat2(data string) string {
+	if data == "" {
+		return data
+	}
+	l := NumRand(1, len(data)) //random from 1 to data len
+	oddnumber := 10
+	x := mystring.RandString(oddnumber)
+	y := base64.StdEncoding.EncodeToString([]byte(x))
+	y = strings.Replace(y, "=", "", -1)
+
+	data = data[:l] + y + data[l:]
+	data = base64.StdEncoding.EncodeToString([]byte(data))
+	data = strings.Replace(data, "=", "", -1)
+	return x + data
+}
+
 //for encDat2
 func Decode(data string) string {
+	if data == "" {
+		return data
+	}
 	if len(data) < 10 {
 		log.Errorf("cannot decode %s", data)
 		return data
 	}
+	//fix + char
+	data = strings.Replace(data, " ", "+", -1)
+
 	x := 10
 	xstr := data[:x]
 	data = data[x:]
@@ -471,7 +521,9 @@ func Decode(data string) string {
 }
 
 func Encode2(data string) string {
-
+	if data == "" {
+		return data
+	}
 	oddnumber := NumRand(1, 9)
 	x := mystring.RandString(oddnumber)
 	//log.Debugf("x: %s", x)
@@ -490,6 +542,9 @@ func Encode2(data string) string {
 	return x + data + oddb64
 }
 func Decode2(data string) string {
+	if data == "" {
+		return data
+	}
 	if len(data) < 10 {
 		log.Errorf("cannot decode %s", data)
 		return data
@@ -530,6 +585,9 @@ func Decode2(data string) string {
 }
 
 func Encode3(data string) string {
+	if data == "" {
+		return data
+	}
 	data = base64.StdEncoding.EncodeToString([]byte(data))
 	data = strings.Replace(data, "=", "", -1)
 	var datalen = len(data)
@@ -552,7 +610,9 @@ func Encode3(data string) string {
 }
 
 func Decode3(data string) string {
-
+	if data == "" {
+		return data
+	}
 	oddb64 := data[len(data)-2:]
 	data = data[:len(data)-2]
 
@@ -614,7 +674,9 @@ func Encode4(data string) string {
 }
 
 func Decode4(data string) string {
-
+	if data == "" {
+		return data
+	}
 	ld := len(data)/2 - 1
 	var x2 = data[ld : ld+2]
 
@@ -646,7 +708,9 @@ func Decode4(data string) string {
 
 //encode for wapi
 func EncodeW(data string) string {
-
+	if data == "" {
+		return data
+	}
 	var x2 = base64.StdEncoding.EncodeToString([]byte(data))
 	x2 = strings.Replace(x2, "=", "", -1)
 	return x2
