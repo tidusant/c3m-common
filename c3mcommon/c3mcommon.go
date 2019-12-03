@@ -616,6 +616,8 @@ func ImgResize(imagebytes []byte, w, h uint) ([]byte, string) {
 	} else if filetype == "image/png" {
 		png.Encode(wr, m)
 		returnext = "png"
+	} else {
+		returnext = filetype
 	}
 
 	return buf.Bytes(), returnext
