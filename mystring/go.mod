@@ -1,1 +1,1 @@
-module github.com/tidusant/c3m-common/mystring
+module github.com/tidusant/c3m-common/mystring/v1.2
