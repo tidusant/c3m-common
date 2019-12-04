@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	//test dev:q dev
+	//test dev
 
 	"time"
 )
