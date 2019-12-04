@@ -2,7 +2,6 @@ package myimage
 
 import "os"
 
-//test reset 2 file myimage 1
 func GetFormat(file *os.File) string {
 	bytes := make([]byte, 4)
 	n, _ := file.ReadAt(bytes, 0)
