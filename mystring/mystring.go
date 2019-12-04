@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	//test reset 2 file 1
+	//test reset 2 file 2
 
 	"time"
 )
