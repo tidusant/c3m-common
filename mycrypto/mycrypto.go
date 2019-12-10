@@ -13,6 +13,7 @@ import (
 	"github.com/tidusant/c3m-common/mystring"
 )
 
+
 func StringRand(strlen int) string {
 	rand.Seed(time.Now().UTC().UnixNano())
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
