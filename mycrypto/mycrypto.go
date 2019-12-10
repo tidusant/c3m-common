@@ -7,12 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	//test
 	"github.com/tidusant/c3m-common/log"
 	"github.com/tidusant/c3m-common/lzjs"
 	"github.com/tidusant/c3m-common/mystring"
 )
-
 
 func StringRand(strlen int) string {
 	rand.Seed(time.Now().UTC().UnixNano())
