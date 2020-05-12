@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 )
 
-// used by rulesets
+// used by  rulesets
 type Rule struct {
 	suffix      string
 	replacement string
