@@ -35,7 +35,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/spf13/viper"
-	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2" //
 )
 
 var (

@@ -12,7 +12,7 @@ import (
 
 	"github.com/tidusant/c3m-common/log"
 	"github.com/tidusant/c3m-common/lzjs"
-	"github.com/tidusant/c3m-common/mystring"
+	"github.com/tidusant/c3m-common/mystring" //
 )
 
 func StringRand(strlen int) string {
