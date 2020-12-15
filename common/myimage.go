@@ -1,4 +1,4 @@
-package myimage
+package common
 
 import "os"
 

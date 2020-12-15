@@ -4,14 +4,13 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/tidusant/c3m-common/log"
 	"math"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/tidusant/c3m-common/log"
-	"github.com/tidusant/c3m-common/lzjs"
 	"github.com/tidusant/c3m-common/mystring"
 )
 
@@ -41,7 +40,7 @@ func Base64fix(s string) string {
 	return s
 }
 func Base64Compress(s string) string {
-	return lzjs.CompressToBase64(s)
+	return CompressToBase64(s)
 }
 func MD5(text string) string {
 	algorithm := md5.New()
@@ -50,7 +49,7 @@ func MD5(text string) string {
 }
 
 func Base64Decompress(s string) string {
-	byteDecode, _ := lzjs.DecompressFromBase64(s)
+	byteDecode, _ := DecompressFromBase64(s)
 	return byteDecode
 }
 func Base64Encode(s string) string {
@@ -67,7 +66,11 @@ func CampaignDecode(data string) string {
 	return string(strbytes)
 }
 
-//for decode old
+//Encode: encoding data, if div=2: compress data to base64 before decode, else base64 data.
+// - Add a random string with x len (x random from 2 to 9) to data
+// - split data by x into 2 string and reverse 2 string and join into 1 string
+// - base64 x into x2
+// - put x2 into datastring at position of l=len(data)/div
 func Encode(data string, div int) string {
 	if data == "" {
 		return data
@@ -79,8 +82,7 @@ func Encode(data string, div int) string {
 	//log.Debugf("x2 base 64 :%s", x2)
 	//x2b := []byte(x2)
 	if div == 2 {
-		data = lzjs.CompressToBase64(data)
-
+		data = CompressToBase64(data)
 	} else {
 		data = base64.StdEncoding.EncodeToString([]byte(data))
 		//log.Debugf("data base 64 :%s", data)
@@ -128,7 +130,7 @@ func EncodeLight1(data string, div int) string {
 	//log.Debugf("x2 base 64 :%s", x2)
 	//x2b := []byte(x2)
 	if div == 2 {
-		data = lzjs.CompressToBase64(data)
+		data = CompressToBase64(data)
 
 	} else {
 		data = base64.StdEncoding.EncodeToString([]byte(data))
@@ -201,7 +203,7 @@ func DecodeLight1(code string, div int) string {
 	// 	base64str = base64str[:len(base64str)-intNum]
 
 	if div == 2 {
-		byteDecode, _ := lzjs.DecompressFromBase64(key)
+		byteDecode, _ := DecompressFromBase64(key)
 		rt = byteDecode
 	} else {
 		byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(key))
@@ -268,10 +270,10 @@ func DecodeOld(code string, div int) string {
 		//log.Debugf("lzjs %s", Base64fix(base64str))
 		//byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(base64str))
 		//base64str = Base64fix(base64str)
-		//byteDecode, _ := lzjs.DecompressFromBase64(base64str)
+		//byteDecode, _ := DecompressFromBase64(base64str)
 		//data, _ := base64.StdEncoding.DecodeString(base64str)
 		if div == 2 {
-			byteDecode, _ := lzjs.DecompressFromBase64(base64str)
+			byteDecode, _ := DecompressFromBase64(base64str)
 			rt = byteDecode
 		} else {
 			byteDecode, _ := base64.StdEncoding.DecodeString(Base64fix(base64str))
@@ -382,7 +384,7 @@ func EncodeBK(data string, keysalt string) string {
 	if data == "" {
 		return data
 	}
-	//data = lzjs.CompressToBase64(data)
+	//data = CompressToBase64(data)
 	data = base64.StdEncoding.EncodeToString([]byte(data))
 	data = strings.Replace(data, "=", "", -1)
 	//log.Debugf("keysalt: %s", keysalt)
@@ -413,7 +415,7 @@ func DecodeBK(data string, keysalt string) string {
 	data = data[:l] + data[l+len(keysalt):]
 
 	data = Base64fix(data)
-	//byteDecode, _ := lzjs.DecompressFromBase64(data)
+	//byteDecode, _ := DecompressFromBase64(data)
 	byteDecode, _ := base64.StdEncoding.DecodeString(data)
 	data = string(byteDecode)
 	return data
@@ -496,7 +498,7 @@ func EncDat2(data string) string {
 	return x + data
 }
 
-//for encDat2
+//Decode: decode for func encDat2 of javascript and EncDat2
 func Decode(data string) string {
 	if data == "" {
 		return data
@@ -511,7 +513,7 @@ func Decode(data string) string {
 	x := 10
 	xstr := data[:x]
 	data = data[x:]
-	//data, _ = lzjs.DecompressFromBase64(data)
+	//data, _ = DecompressFromBase64(data)
 	data = Base64fix(data)
 	datab, _ := base64.StdEncoding.DecodeString(data)
 	xb64 := base64.StdEncoding.EncodeToString([]byte(xstr))
@@ -530,7 +532,7 @@ func Encode2(data string) string {
 	y := base64.StdEncoding.EncodeToString([]byte(x))
 	y = strings.Replace(y, "=", "", -1)
 	//log.Debugf("y: %s", y)
-	data = lzjs.CompressToBase64(data)
+	data = CompressToBase64(data)
 	//log.Debugf("datacomp: %s", data)
 	l := NumRand(2, len(data))
 	data = data[:l] + y + data[l:]
@@ -575,7 +577,7 @@ func Decode2(data string) string {
 		//test decode
 		datatest := data[:ypos] + data[ypos+len(y):]
 		log.Debugf("datatest: %s", datatest)
-		datatest, _ = lzjs.DecompressFromBase64(datatest)
+		datatest, _ = DecompressFromBase64(datatest)
 		if datatest != "" {
 			return datatest
 
@@ -644,7 +646,7 @@ func Encode4(data string) string {
 
 	data = xstr + data
 
-	//data = lzjs.CompressToBase64(data)
+	//data = CompressToBase64(data)
 	data = base64.StdEncoding.EncodeToString([]byte(data))
 	data = strings.Replace(data, "=", "", -1)
 
@@ -698,7 +700,7 @@ func Decode4(data string) string {
 		}
 	}
 
-	//data, _ = lzjs.DecompressFromBase64(rs)
+	//data, _ = DecompressFromBase64(rs)
 	tmp, _ := base64.StdEncoding.DecodeString(Base64fix(rs))
 	data = string(tmp)
 
@@ -762,7 +764,7 @@ func DecodeW(code string) string {
 		base64str = base64str[:len(base64str)-intNum]
 
 		byteDecode, _ := base64.StdEncoding.DecodeString(base64str)
-		//byteDecode, _ := lzjs.DecompressFromBase64(base64str)
+		//byteDecode, _ := DecompressFromBase64(base64str)
 
 		rt = string(byteDecode)
 
