@@ -1,4 +1,4 @@
-package common
+package c3mcommon
 
 import (
 	"archive/zip"
