@@ -452,14 +452,14 @@ func initCountryFlag() {
 	listCountryFlag["zu"] = "za"
 	listCountryFlag["zz"] = "tr"
 }
-func ConnectAtlasDB(dbname string) (db *mongo.Database, strErr string) {
+func ConnectAtlasDB(ctx context.Context, dbname string) (db *mongo.Database, strErr string) {
 	fmt.Printf("connecting to db %s with URL:%s", strings.ToUpper(dbname)+"_URI", os.Getenv(strings.ToUpper(dbname)+"_URI"))
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(os.Getenv(strings.ToUpper(dbname)+"_URI")))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv(strings.ToUpper(dbname)+"_URI")))
 	if err != nil {
 		return nil, err.Error()
 	}
 	fmt.Println("Connected to MongoDB!")
-	defer client.Disconnect(context.TODO())
+	defer client.Disconnect(ctx)
 	return client.Database(dbname), ""
 }
 func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
