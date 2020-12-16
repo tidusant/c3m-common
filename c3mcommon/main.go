@@ -34,7 +34,6 @@ import (
 	"github.com/tidusant/c3m-common/log"
 	"github.com/tidusant/c3m-common/mycrypto"
 	"github.com/tidusant/c3m-common/mystring"
-	"github.com/tidusant/chadmin-repo/models"
 
 	"github.com/nfnt/resize"
 	"github.com/spf13/viper"
@@ -47,6 +46,13 @@ var (
 	listLocale      map[string]string
 	listCountry     map[string]string
 )
+
+type RequestResult struct {
+	Status  string `json:"status"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Data    string `json:"data"`
+}
 
 func init() {
 	fmt.Print("init common...")
@@ -496,11 +502,11 @@ func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
 func GetSpecialChar() string {
 	return `.*?/\n~!@#$%^&*(),.[];'<>"` + "`"
 }
-func ReturnJsonMessage(status, strerr, strmsg, data string) models.RequestResult {
+func ReturnJsonMessage(status, strerr, strmsg, data string) RequestResult {
 	if data == "" {
 		data = "{}"
 	}
-	var resp models.RequestResult
+	var resp RequestResult
 	resp.Status = status
 	resp.Error = strerr
 	resp.Message = strmsg
@@ -887,10 +893,10 @@ func MinifyCompress(content string) string {
 	rtstr, _ := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
 	return rtstr
 }
-func RequestMainService(uri, method, data string) models.RequestResult {
+func RequestMainService(uri, method, data string) RequestResult {
 	data = "data=" + mycrypto.EncDat2(data)
 	rtstr, resp := RequestUrl(os.Getenv("MAIN_SERVER")+mycrypto.EncDat2(uri), method, data)
-	var rs models.RequestResult
+	var rs RequestResult
 	if resp == nil || resp.StatusCode != 200 {
 		rs.Status = "0"
 		rs.Error = "Request service error. Please contact your administrator."
@@ -906,11 +912,11 @@ func RequestMainService(uri, method, data string) models.RequestResult {
 	}
 	return rs
 }
-func RequestBuildService(uri, method, data string) models.RequestResult {
+func RequestBuildService(uri, method, data string) RequestResult {
 
 	data = "data=" + mycrypto.EncDat2(data)
 	rtstr, resp := RequestUrl(viper.GetString("config.buildserver")+mycrypto.EncodeBK(uri, "name"), method, data)
-	var rs models.RequestResult
+	var rs RequestResult
 	if resp == nil || resp.StatusCode != 200 {
 		rs.Status = "0"
 		rs.Error = "Request service error. Please contact your administrator."
