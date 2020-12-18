@@ -465,8 +465,8 @@ func ConnectAtlasDB(ctx context.Context, dbname string) (db *mongo.Database, str
 		return nil, err.Error()
 	}
 	fmt.Println("Connected to MongoDB!")
-	defer client.Disconnect(ctx)
-	return client.Database(dbname), ""
+
+	return client.Database(os.Getenv(strings.ToUpper(dbname) + "_DB")), ""
 }
 func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
 	//get database config from ENV
@@ -502,7 +502,7 @@ func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
 func GetSpecialChar() string {
 	return `.*?/\n~!@#$%^&*(),.[];'<>"` + "`"
 }
-func ReturnJsonMessage(status, strerr, strmsg, data string) RequestResult {
+func ReturnJsonMessage(status, strerr, strmsg, data string) string {
 	if data == "" {
 		data = "{}"
 	}
@@ -512,7 +512,8 @@ func ReturnJsonMessage(status, strerr, strmsg, data string) RequestResult {
 	resp.Message = strmsg
 
 	resp.Data = data
-	return resp
+	b, _ := json.Marshal(resp)
+	return string(b)
 }
 func FileCount(path string) int {
 	i := 0
@@ -893,14 +894,15 @@ func MinifyCompress(content string) string {
 	rtstr, _ := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
 	return rtstr
 }
-func RequestMainService(uri, method, data string) RequestResult {
+func RequestMainService(uri, method, data string) string {
 	data = "data=" + mycrypto.EncDat2(data)
 	rtstr, resp := RequestUrl(os.Getenv("MAIN_SERVER")+mycrypto.EncDat2(uri), method, data)
 	var rs RequestResult
 	if resp == nil || resp.StatusCode != 200 {
 		rs.Status = "0"
 		rs.Error = "Request service error. Please contact your administrator."
-		return rs
+		b, _ := json.Marshal(rs)
+		return string(b)
 	}
 	rtstr = mycrypto.DecodeOld(rtstr, 8)
 
@@ -910,9 +912,10 @@ func RequestMainService(uri, method, data string) RequestResult {
 		rs.Status = "0"
 		rs.Error = "Service Response error. Please contact your administrator."
 	}
-	return rs
+	b, _ := json.Marshal(rs)
+	return string(b)
 }
-func RequestBuildService(uri, method, data string) RequestResult {
+func RequestBuildService(uri, method, data string) string {
 
 	data = "data=" + mycrypto.EncDat2(data)
 	rtstr, resp := RequestUrl(viper.GetString("config.buildserver")+mycrypto.EncodeBK(uri, "name"), method, data)
@@ -920,7 +923,8 @@ func RequestBuildService(uri, method, data string) RequestResult {
 	if resp == nil || resp.StatusCode != 200 {
 		rs.Status = "0"
 		rs.Error = "Request service error. Please contact your administrator."
-
+		b, _ := json.Marshal(rs)
+		return string(b)
 	}
 	rtstr = mycrypto.DecodeLight1(rtstr, 5)
 
@@ -930,8 +934,8 @@ func RequestBuildService(uri, method, data string) RequestResult {
 		rs.Status = "0"
 		rs.Error = "Service Response error. Please contact your administrator."
 	}
-
-	return rs
+	b, _ := json.Marshal(rs)
+	return string(b)
 }
 func RequestBuildServiceAsync(uri, method, data string) {
 	go func(uri, method, data string) {
