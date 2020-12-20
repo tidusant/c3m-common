@@ -48,7 +48,7 @@ var (
 )
 
 type RequestResult struct {
-	Status  string `json:"status"`
+	Status  int    `json:"status" default:0`
 	Error   string `json:"error"`
 	Message string `json:"message"`
 	Data    string `json:"data"`
@@ -502,7 +502,7 @@ func ConnectDB(dbname string) (db *mgo.Database, strErr string) {
 func GetSpecialChar() string {
 	return `.*?/\n~!@#$%^&*(),.[];'<>"` + "`"
 }
-func ReturnJsonMessage(status, strerr, strmsg, data string) string {
+func ReturnJsonMessage(status int, strerr, strmsg, data string) string {
 	if data == "" {
 		data = "{}"
 	}
@@ -894,23 +894,23 @@ func MinifyCompress(content string) string {
 	rtstr, _ := RequestUrl(viper.GetString("config.minifycompress"), "POST", data)
 	return rtstr
 }
-func RequestMainService(uri, method, data string) string {
+func RequestAPI(address, query, data string) string {
 	data = "data=" + mycrypto.EncDat2(data)
-	rtstr, resp := RequestUrl(os.Getenv("MAIN_SERVER")+mycrypto.EncDat2(uri), method, data)
-	var rs RequestResult
-	if resp == nil || resp.StatusCode != 200 {
-		rs.Status = "0"
-		rs.Error = "Request service error. Please contact your administrator."
-		b, _ := json.Marshal(rs)
-		return string(b)
+
+	if address[len(address)-1:len(address)] != "/" {
+		address += "/"
 	}
-	rtstr = mycrypto.DecodeOld(rtstr, 8)
 
-	json.Unmarshal([]byte(rtstr), &rs)
-
-	if rs.Status == "" {
-		rs.Status = "0"
-		rs.Error = "Service Response error. Please contact your administrator."
+	rtstr, resp := RequestUrl(address+mycrypto.EncDat2(query), "POST", data)
+	rs := RequestResult{Status: 0}
+	if resp == nil || resp.StatusCode != 200 {
+		rs.Error = "Request service error. Please check the service at " + address
+	} else {
+		rtstr = mycrypto.DecodeOld(rtstr, 8)
+		err := json.Unmarshal([]byte(rtstr), &rs)
+		if err != nil {
+			rs.Error = "Response string parse json fail: " + err.Error()
+		}
 	}
 	b, _ := json.Marshal(rs)
 	return string(b)
@@ -921,7 +921,7 @@ func RequestBuildService(uri, method, data string) string {
 	rtstr, resp := RequestUrl(viper.GetString("config.buildserver")+mycrypto.EncodeBK(uri, "name"), method, data)
 	var rs RequestResult
 	if resp == nil || resp.StatusCode != 200 {
-		rs.Status = "0"
+		rs.Status = 0
 		rs.Error = "Request service error. Please contact your administrator."
 		b, _ := json.Marshal(rs)
 		return string(b)
@@ -930,8 +930,7 @@ func RequestBuildService(uri, method, data string) string {
 
 	json.Unmarshal([]byte(rtstr), &rs)
 
-	if rs.Status == "" {
-		rs.Status = "0"
+	if rs.Status == 0 {
 		rs.Error = "Service Response error. Please contact your administrator."
 	}
 	b, _ := json.Marshal(rs)
@@ -948,16 +947,11 @@ func RequestUrl(urlrequest, method, data string) (string, *http.Response) {
 	// payloadBytes, err := json.Marshal(data)
 	body := bytes.NewReader([]byte(data))
 	if strings.ToLower(method) == "post" {
-		if viper.GetString("config.proxy") != "" {
-
-			proxyUrl, _ := url.Parse(viper.GetString("config.proxy"))
-			http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
-		}
 
 		req, err = http.NewRequest("POST", urlrequest, body)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		host := viper.GetString("config.hostname")
-		req.Header.Set("Origin", host)
+		//host := viper.GetString("config.hostname")
+		//req.Header.Set("Origin", host)
 
 		// host = strings.Replace(host, "http://", "", -1)
 		// host = strings.Replace(host, "https://", "", -1)
@@ -966,7 +960,6 @@ func RequestUrl(urlrequest, method, data string) (string, *http.Response) {
 
 	} else {
 		req, err = http.NewRequest("GET", urlrequest+"?"+data, nil)
-
 	}
 
 	resp, err := http.DefaultClient.Do(req)
